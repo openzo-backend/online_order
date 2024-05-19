@@ -1,9 +1,11 @@
 package service
 
 import (
+	"encoding/json"
+
+	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
 	"github.com/gin-gonic/gin"
 	"github.com/tanush-128/openzo_backend/online_order/internal/models"
-	"github.com/tanush-128/openzo_backend/online_order/internal/pb"
 	"github.com/tanush-128/openzo_backend/online_order/internal/repository"
 )
 
@@ -19,34 +21,30 @@ type OnlineOrderService interface {
 
 type online_orderService struct {
 	online_orderRepository repository.OnlineOrderRepository
-	notificationService    pb.NotificationServiceClient
-	storeService           pb.StoreServiceClient
+	kafkaProducer          *kafka.Producer
 }
 
 func NewOnlineOrderService(online_orderRepository repository.OnlineOrderRepository,
-	notificationService pb.NotificationServiceClient, storeService pb.StoreServiceClient,
+	kafkaProducer *kafka.Producer,
 ) OnlineOrderService {
-	return &online_orderService{online_orderRepository: online_orderRepository, notificationService: notificationService, storeService: storeService}
+	return &online_orderService{online_orderRepository: online_orderRepository, kafkaProducer: kafkaProducer}
 }
 
 func (s *online_orderService) CreateOnlineOrder(ctx *gin.Context, req models.OnlineOrder) (models.OnlineOrder, error) {
 
-	token, err := s.storeService.GetFCMToken(ctx, &pb.StoreId{Id: req.StoreID})
+	topic := "onlineorder"
+	orderMsg, err := json.Marshal(req)
 	if err != nil {
 		return models.OnlineOrder{}, err
 	}
 
-	_, err = s.notificationService.SendNotification(ctx, &pb.Notification{
-		Title: "New Order",
-		Body:  "Your store has a new order!",
-		Token: token.Token,
-		// Token:     "eFqUJcuhRWKFivWqRzeui3:APA91bHL8rpzdfk2dctBqIEHsdmiu8JJvTZgiF644vo39PaJ0g-yoc_BCSrSlxk7fTwznHvU4CaEup3CKA6FxXp-ZdS8TCzgWXOHDS504UAJQ9W5-l62V9gtOLkjnMXPKtHXeh5ZUp42",
-		ImageURL:  "",
-		ActionURL: "",
-	})
-	if err != nil {
-		return models.OnlineOrder{}, err
-	}
+	s.kafkaProducer.Produce(&kafka.Message{
+		TopicPartition: kafka.TopicPartition{Topic: &topic, Partition: kafka.PartitionAny},
+		Value:          orderMsg,
+		Key:            []byte("new_order"),
+	}, nil)
+	s.kafkaProducer.Flush(15 * 1000)
+
 	createdOnlineOrder, err := s.online_orderRepository.CreateOnlineOrder(req)
 	if err != nil {
 		return models.OnlineOrder{}, err // Propagate error
@@ -57,44 +55,36 @@ func (s *online_orderService) CreateOnlineOrder(ctx *gin.Context, req models.Onl
 
 func (s *online_orderService) ChangeOrderStatus(ctx *gin.Context, id string, status string) (models.OnlineOrder, error) {
 
-	token := ""
-
+	OnlineOrder, err := s.online_orderRepository.GetOnlineOrderByID(id)
+	if err != nil {
+		return models.OnlineOrder{}, err
+	}
 	if status == "accepted" {
-		acceptedNotification.Token = token
-		_, err := s.notificationService.SendNotification(ctx, &acceptedNotification)
-		if err != nil {
-			return models.OnlineOrder{}, err
-		}
+		OnlineOrder.OrderStatus = models.OrderAccepted
 	} else if status == "rejected" {
-		rejectedNotification.Token = token
-		_, err := s.notificationService.SendNotification(ctx, &rejectedNotification)
-		if err != nil {
-			return models.OnlineOrder{}, err
-		}
-
+		OnlineOrder.OrderStatus = models.OrderRejected
 	} else if status == "out_for_delivery" {
-		outForDeliveryNotification.Token = token
-		_, err := s.notificationService.SendNotification(ctx, &outForDeliveryNotification)
-		if err != nil {
-			return models.OnlineOrder{}, err
-		}
-
+		OnlineOrder.OrderStatus = models.OrderOutForDel
 	} else if status == "cancelled" {
-		cancelledNotification.Token = token
-		_, err := s.notificationService.SendNotification(ctx, &cancelledNotification)
-		if err != nil {
-			return models.OnlineOrder{}, err
-		}
-
+		OnlineOrder.OrderStatus = models.OrderCancelled
 	} else if status == "delivered" {
-		deliveredNotification.Token = token
-		_, err := s.notificationService.SendNotification(ctx, &deliveredNotification)
-		if err != nil {
-			return models.OnlineOrder{}, err
-		}
+		OnlineOrder.OrderStatus = models.OrderDelivered
 	}
 
-	changedOnlineOrder, err := s.online_orderRepository.ChangeOrderStatus(id, status)
+	topic := "order-status-updates"
+	orderStatusMsg, err := json.Marshal(OnlineOrder)
+	if err != nil {
+		return models.OnlineOrder{}, err
+	}
+
+	s.kafkaProducer.Produce(&kafka.Message{
+		TopicPartition: kafka.TopicPartition{Topic: &topic, Partition: kafka.PartitionAny},
+		Value:          orderStatusMsg,
+		Key:            []byte("order_status"),
+	}, nil)
+	s.kafkaProducer.Flush(15 * 1000)
+
+	changedOnlineOrder, err := s.online_orderRepository.UpdateOnlineOrder(OnlineOrder)
 	if err != nil {
 		return models.OnlineOrder{}, err
 	}

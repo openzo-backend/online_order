@@ -37,6 +37,6 @@ type OnlineCustomer struct {
 	ID            int    `json:"id"`
 	Phone         string `json:"phone"`
 	Address       string `json:"address"`
-	UserDataId    int    `json:"user_data_id"`
+	UserDataId    string `json:"user_data_id"`
 	OnlineOrderID string `json:"sale_id"`
 }

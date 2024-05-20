@@ -28,8 +28,8 @@ type OnlineOrder struct {
 
 type OnlineOrderItem struct {
 	ID            int    `json:"id"`
-	ProductID     string `json:"product_id"`
-	OnlineOrderId string `json:"sale_id"`
+	ProductID     string `json:"product_id" gorm:"size:36"`
+	OnlineOrderId string `json:"sale_id" gorm:"size:36"`
 	Quantity      int    `json:"quantity"`
 }
 
@@ -37,6 +37,6 @@ type OnlineCustomer struct {
 	ID            int    `json:"id"`
 	Phone         string `json:"phone"`
 	Address       string `json:"address"`
-	UserDataId    string `json:"user_data_id"`
-	OnlineOrderID string `json:"sale_id"`
+	UserDataId    string `json:"user_data_id" gorm:"size:36"`
+	OnlineOrderID string `json:"sale_id" gorm:"size:36"`
 }

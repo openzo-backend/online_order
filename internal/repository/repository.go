@@ -52,7 +52,7 @@ func (r *online_orderRepository) GetOnlineOrdersByStoreID(store_id string) ([]mo
 	var OnlineOrders []models.OnlineOrder
 	// exclude orders with status "not_placed"
 	// tx := r.db.Where("store_id = ?", store_id).Preload("OrderItems").Preload("Customer").Find(&OnlineOrders)
-	tx := r.db.Where("store_id = ? AND status != ?", store_id, "not_placed").Preload("OrderItems").Preload("Customer").Find(&OnlineOrders)
+	tx := r.db.Where("store_id = ? AND order_status != ?", store_id, "not_placed").Preload("OrderItems").Preload("Customer").Find(&OnlineOrders)
 	if tx.Error != nil {
 		return []models.OnlineOrder{}, tx.Error
 

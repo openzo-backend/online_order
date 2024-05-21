@@ -79,8 +79,10 @@ func main() {
 	router.GET("/:id", handler.GetOnlineOrderByID)
 	router.GET("/changeStatus/:id", handler.ChangeOrderStatus)
 	router.GET("/store/:store_id", handler.GetOnlineOrdersByStoreID)
-	router.Use(middlewares.NewMiddleware(c).JwtMiddleware)
+	router.GET("/user/:user_data_id", handler.GetOnlineOrdersByUserDataId)
 	router.PUT("/", handler.UpdateOnlineOrder)
+	router.DELETE("/:id", handler.DeleteOnlineOrder)
+	router.Use(middlewares.NewMiddleware(c).JwtMiddleware)
 
 	router.Run(fmt.Sprintf(":%s", cfg.HTTPPort))
 

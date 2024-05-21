@@ -15,8 +15,10 @@ type OnlineOrderService interface {
 	CreateOnlineOrder(ctx *gin.Context, req models.OnlineOrder) (models.OnlineOrder, error)
 	GetOnlineOrderByID(ctx *gin.Context, id string) (models.OnlineOrder, error)
 	GetOnlineOrdersByStoreID(ctx *gin.Context, store_id string) ([]models.OnlineOrder, error)
+	GetOnlineOrdersByUserDataId(ctx *gin.Context, user_data_id string) ([]models.OnlineOrder, error)
 	ChangeOrderStatus(ctx *gin.Context, id string, status string) (models.OnlineOrder, error)
 	UpdateOnlineOrder(ctx *gin.Context, req models.OnlineOrder) (models.OnlineOrder, error)
+	DeleteOnlineOrder(ctx *gin.Context, id string) error
 }
 
 type online_orderService struct {
@@ -41,7 +43,7 @@ func (s *online_orderService) CreateOnlineOrder(ctx *gin.Context, req models.Onl
 	s.kafkaProducer.Produce(&kafka.Message{
 		TopicPartition: kafka.TopicPartition{Topic: &topic, Partition: kafka.PartitionAny},
 		Value:          orderMsg,
-		Key:            []byte("new_order"),
+		Key:            []byte("new_cart_created"),
 	}, nil)
 	s.kafkaProducer.Flush(15 * 1000)
 
@@ -55,11 +57,37 @@ func (s *online_orderService) CreateOnlineOrder(ctx *gin.Context, req models.Onl
 
 func (s *online_orderService) ChangeOrderStatus(ctx *gin.Context, id string, status string) (models.OnlineOrder, error) {
 
+	if status == "not_placed" {
+		return models.OnlineOrder{}, nil
+	}
+
 	OnlineOrder, err := s.online_orderRepository.GetOnlineOrderByID(id)
 	if err != nil {
 		return models.OnlineOrder{}, err
 	}
-	if status == "accepted" {
+
+	if status == "placed" {
+		OnlineOrder.OrderStatus = models.OrderPlaced
+		topic := "onlineorder"
+		orderStatusMsg, err := json.Marshal(OnlineOrder)
+		if err != nil {
+			return models.OnlineOrder{}, err
+		}
+
+		s.kafkaProducer.Produce(&kafka.Message{
+			TopicPartition: kafka.TopicPartition{Topic: &topic, Partition: kafka.PartitionAny},
+			Value:          orderStatusMsg,
+			Key:            []byte("order_placed"),
+		}, nil)
+		s.kafkaProducer.Flush(15 * 1000)
+		changedOnlineOrder, err := s.online_orderRepository.UpdateOnlineOrder(OnlineOrder)
+		if err != nil {
+			return models.OnlineOrder{}, err
+		}
+
+		return changedOnlineOrder, nil
+
+	} else if status == "accepted" {
 		OnlineOrder.OrderStatus = models.OrderAccepted
 	} else if status == "rejected" {
 		OnlineOrder.OrderStatus = models.OrderRejected
@@ -93,10 +121,22 @@ func (s *online_orderService) ChangeOrderStatus(ctx *gin.Context, id string, sta
 }
 
 func (s *online_orderService) UpdateOnlineOrder(ctx *gin.Context, req models.OnlineOrder) (models.OnlineOrder, error) {
+
+	go s.ChangeOrderStatus(ctx, req.ID, string(req.OrderStatus))
+
 	updatedOnlineOrder, err := s.online_orderRepository.UpdateOnlineOrder(req)
 	if err != nil {
 		return models.OnlineOrder{}, err
 	}
 
 	return updatedOnlineOrder, nil
+}
+
+func (s *online_orderService) DeleteOnlineOrder(ctx *gin.Context, id string) error {
+	err := s.online_orderRepository.DeleteOnlineOrder(id)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

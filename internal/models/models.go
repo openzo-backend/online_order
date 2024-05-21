@@ -1,5 +1,7 @@
 package models
 
+import "time"
+
 // type OnlineOrder struct {
 // 	ID string `json:"id" gorm:"primaryKey"` // The ID field is also the UUID for the store
 
@@ -8,6 +10,7 @@ package models
 type OrderStatus string
 
 const (
+	OrderNotPlaced OrderStatus = "not_placed"
 	OrderPlaced    OrderStatus = "placed"
 	OrderAccepted  OrderStatus = "accepted"
 	OrderRejected  OrderStatus = "rejected"
@@ -21,7 +24,7 @@ type OnlineOrder struct {
 	OrderItems  []OnlineOrderItem `json:"order_items"`
 	StoreID     string            `json:"store_id"`
 	Customer    OnlineCustomer    `json:"customer"`
-	OrderTime   string            `json:"order_time"`
+	OrderTime   time.Time         `json:"order_time" gorm:"autoCreateTime"`
 	OrderStatus OrderStatus       `json:"order_status"`
 	TotalAmount float64           `json:"total_amount"`
 }

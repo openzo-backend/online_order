@@ -6,20 +6,16 @@ import (
 )
 
 func (s *online_orderService) GetOnlineOrderByID(ctx *gin.Context, id string) (models.OnlineOrder, error) {
-	online_order, err := s.online_orderRepository.GetOnlineOrderByID(id)
-	if err != nil {
-		return models.OnlineOrder{}, err
-	}
 
-	return online_order, nil
+	return s.online_orderRepository.GetOnlineOrderByID(id)
 }
-
 func (s *online_orderService) GetOnlineOrdersByStoreID(ctx *gin.Context, store_id string) ([]models.OnlineOrder, error) {
-	online_orders, err := s.online_orderRepository.GetOnlineOrdersByStoreID(store_id)
-	if err != nil {
-		return []models.OnlineOrder{}, err
-	}
 
-	return online_orders, nil
+	return s.online_orderRepository.GetOnlineOrdersByStoreID(store_id)
+
 }
 
+func (s *online_orderService) GetOnlineOrdersByUserDataId(ctx *gin.Context, user_data_id string) ([]models.OnlineOrder, error) {
+
+	return s.online_orderRepository.GetOnlineOrdersByUserDataId(user_data_id)
+}

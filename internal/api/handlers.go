@@ -45,12 +45,22 @@ func (h *Handler) GetOnlineOrderByID(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, online_order)
 }
 
-
-
 func (h *Handler) GetOnlineOrdersByStoreID(ctx *gin.Context) {
 	store_id := ctx.Param("store_id")
 
 	online_orders, err := h.online_orderService.GetOnlineOrdersByStoreID(ctx, store_id)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, online_orders)
+}
+
+func (h *Handler) GetOnlineOrdersByUserDataId(ctx *gin.Context) {
+	user_data_id := ctx.Param("user_data_id")
+
+	online_orders, err := h.online_orderService.GetOnlineOrdersByUserDataId(ctx, user_data_id)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -86,4 +96,16 @@ func (h *Handler) UpdateOnlineOrder(ctx *gin.Context) {
 	}
 
 	ctx.JSON(http.StatusOK, updatedOnlineOrder)
+}
+
+func (h *Handler) DeleteOnlineOrder(ctx *gin.Context) {
+	id := ctx.Param("id")
+
+	err := h.online_orderService.DeleteOnlineOrder(ctx, id)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{"message": "Online Order deleted successfully"})
 }

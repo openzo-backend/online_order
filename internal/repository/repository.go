@@ -50,7 +50,9 @@ func (r *online_orderRepository) GetOnlineOrderByID(id string) (models.OnlineOrd
 
 func (r *online_orderRepository) GetOnlineOrdersByStoreID(store_id string) ([]models.OnlineOrder, error) {
 	var OnlineOrders []models.OnlineOrder
-	tx := r.db.Where("store_id = ?", store_id).Preload("OrderItems").Preload("Customer").Find(&OnlineOrders)
+	// exclude orders with status "not_placed"
+	// tx := r.db.Where("store_id = ?", store_id).Preload("OrderItems").Preload("Customer").Find(&OnlineOrders)
+	tx := r.db.Where("store_id = ? AND status != ?", store_id, "not_placed").Preload("OrderItems").Preload("Customer").Find(&OnlineOrders)
 	if tx.Error != nil {
 		return []models.OnlineOrder{}, tx.Error
 
@@ -75,6 +77,7 @@ func (r *online_orderRepository) GetOnlineOrdersByUserDataId(user_data_id string
 
 func (r *online_orderRepository) UpdateOnlineOrder(OnlineOrder models.OnlineOrder) (models.OnlineOrder, error) {
 	// update order items first
+
 	tx := r.db.Where("online_order_id = ?", OnlineOrder.ID).Delete(&models.OnlineOrderItem{})
 	if tx.Error != nil {
 		return models.OnlineOrder{}, tx.Error
